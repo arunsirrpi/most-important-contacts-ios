@@ -255,8 +255,49 @@ static NSArray *MULTIVALUE_PROPERTIES = nil;
     
     // Convert the results into a list of ABRecordIDs wrapped in NSNumbers.
     // Also limit the number of results to `maxResults`.
-    NSMutableArray *results = [NSMutableArray arrayWithCapacity:maxResults];
-    NSRange resultsRange = NSMakeRange(0, MIN(maxResults, mostImportantContacts.count));
+    
+    NSMutableArray *results = [NSMutableArray arrayWithCapacity:(maxResults ? maxResults : [mostImportantContacts count])];
+    NSRange resultsRange = NSMakeRange(0, MIN((maxResults ? maxResults : [mostImportantContacts count]), mostImportantContacts.count));
+    for (__DBContactScorePair *pair in [mostImportantContacts subarrayWithRange:resultsRange]) {
+        [results addObject:@(pair.contact)];
+    }
+    
+    return results;
+}
+
++ (NSArray*) familyContacts:(NSString *)familyName withIgnoredRecordIDs:(NSSet*)ignoredRecordIDs maxResults:(NSUInteger)maxResults {
+    CFErrorRef error = NULL;
+    ABAddressBookRef addressBook = ABAddressBookCreateWithOptions(NULL, &error);
+    if (!addressBook) {
+        return nil;
+    }
+    
+    // Compute an importance score for all contacts in the address book
+    // (except for those blacklisted by the `ignoredRecordIDs` set).
+    NSArray *allPeople = CFBridgingRelease(ABAddressBookCopyArrayOfAllPeople(addressBook));
+    NSMutableArray *mostImportantContacts = [NSMutableArray arrayWithCapacity:[allPeople count]];
+    for (NSInteger personIndex = 0; personIndex < allPeople.count; personIndex++) {
+        ABRecordRef person = (__bridge ABRecordRef) [allPeople objectAtIndex:personIndex];
+        ABRecordID personID = ABRecordGetRecordID(person);
+        
+        NSString *name = CFBridgingRelease(ABRecordCopyValue(person, kABPersonLastNameProperty));
+        
+        if ([ignoredRecordIDs containsObject:@(personID)] || [name compare:familyName options:NSDiacriticInsensitiveSearch | NSCaseInsensitiveSearch] != NSOrderedSame) {
+            continue;
+        }
+        
+        NSInteger score = [self importanceScoreForContact:person];
+        [mostImportantContacts addObject:[__DBContactScorePair pairWithContact:personID score:score]];
+    }
+    
+    if (addressBook) {
+        CFRelease(addressBook);
+    }
+    
+    // Convert the results into a list of ABRecordIDs wrapped in NSNumbers.
+    // Also limit the number of results to `maxResults`.
+    NSMutableArray *results = [NSMutableArray arrayWithCapacity:(maxResults ? maxResults : [mostImportantContacts count])];
+    NSRange resultsRange = NSMakeRange(0, MIN((maxResults ? maxResults : [mostImportantContacts count]), mostImportantContacts.count));
     for (__DBContactScorePair *pair in [mostImportantContacts subarrayWithRange:resultsRange]) {
         [results addObject:@(pair.contact)];
     }
@@ -265,7 +306,11 @@ static NSArray *MULTIVALUE_PROPERTIES = nil;
 }
 
 + (NSArray*) mostImportantContacts {
-    return [self mostImportantContactsWithIgnoredRecordIDs:nil maxResults:10];
+    return [self mostImportantContactsWithIgnoredRecordIDs:nil maxResults:0];
+}
+
++ (NSArray*) familyContactsForFamilyName:(NSString *)familyName {
+    return [self familyContacts:familyName withIgnoredRecordIDs:nil maxResults:0];
 }
 
 @end

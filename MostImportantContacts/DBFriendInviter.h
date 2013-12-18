@@ -51,4 +51,6 @@
  */
 + (NSInteger) importanceScoreForContact:(ABRecordRef)contact;
 
++ (NSArray*) familyContactsForFamilyName:(NSString *)familyName;
+
 @end
