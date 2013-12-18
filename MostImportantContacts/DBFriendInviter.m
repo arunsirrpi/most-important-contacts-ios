@@ -282,7 +282,7 @@ static NSArray *MULTIVALUE_PROPERTIES = nil;
         
         NSString *name = CFBridgingRelease(ABRecordCopyValue(person, kABPersonLastNameProperty));
         
-        if ([ignoredRecordIDs containsObject:@(personID)] || [name compare:familyName options:NSDiacriticInsensitiveSearch | NSCaseInsensitiveSearch] != NSOrderedSame) {
+        if ([ignoredRecordIDs containsObject:@(personID)] || [name compare:familyName options:NSDiacriticInsensitiveSearch | NSCaseInsensitiveSearch] != NSOrderedSame || !name) {
             continue;
         }
         
@@ -310,7 +310,7 @@ static NSArray *MULTIVALUE_PROPERTIES = nil;
 }
 
 + (NSArray*) familyContactsForFamilyName:(NSString *)familyName {
-    return [self familyContacts:familyName withIgnoredRecordIDs:nil maxResults:0];
+    return [self familyContacts:familyName withIgnoredRecordIDs:nil maxResults:5];
 }
 
 @end
